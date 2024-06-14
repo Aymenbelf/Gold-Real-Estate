@@ -1,0 +1,221 @@
+library("readxl")
+library(plotly)
+library(FactoMineR)
+library(factoextra)
+library(dplyr)
+library(corrplot)
+library(dendextend)
+library(clValid)
+library(MASS)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(party)
+
+# Load the dataset
+dataset_datamining <- read_excel("dataset_datamining.xls")
+dataset_datamining <- as.data.frame(dataset_datamining)
+str(dataset_datamining)
+
+# Convert specific columns to factors
+dataset_datamining$Sea_View <- as.factor(dataset_datamining$Sea_View)
+dataset_datamining$View_Rating <- as.factor(dataset_datamining$View_Rating)
+dataset_datamining$Condition <- as.factor(dataset_datamining$Condition)
+dataset_datamining$City <- as.factor(dataset_datamining$City)
+
+# Check the structure and summary of the dataset
+str(dataset_datamining)
+summary(dataset_datamining)
+View(dataset_datamining)
+row.names(dataset_datamining) <- paste("house", 1:nrow(dataset_datamining))
+
+# Univariate Analysis
+p <- ggplot(data = dataset_datamining, aes(x = Sea_View)) +
+    geom_bar(stat = "count", position = position_dodge(), fill = c('steelblue', 'red'), size = 0.5, colour = "black") +
+    scale_fill_manual(values = c("#999999", "#E69F00")) +
+    ggtitle("Number of Houses with Sea View") +
+    scale_x_discrete(labels = c('No Sea View', 'Sea View'))
+ggplotly(p)
+# Most houses are inland rather than coastal
+
+# Bivariate Analysis
+dataset_datamining_scaled <- select(dataset_datamining, -City)
+View(dataset_datamining_scaled)
+df_scaled_cor <- scale(dataset_datamining_scaled[,1:9])
+df2 <- cor(df_scaled_cor)
+df2
+heat_plot <- plot_ly(x = colnames(df_scaled_cor), y = colnames(df_scaled_cor), z = df2, type = "heatmap", color = I("pink"))
+heat_plot
+
+df2
+df3 <- cor(df2, use = "complete.obs", method = "pearson")
+df3
+heat_plot1 <- plot_ly(x = colnames(df3), y = colnames(df3), z = df3, type = "heatmap")
+heat_plot1
+
+# Principal Component Analysis (PCA)
+pca <- PCA(dataset_datamining, quali.sup = 10:13, quanti.sup = 2)
+
+# Variable Analysis
+fviz_pca_var(pca, geom = c("arrow", "text"), repel = TRUE, col.var = 'cos2')
+fviz_pca_var(pca, geom = c("arrow", "text"), repel = TRUE, col.var = 'contrib')
+fviz_pca_var(pca, geom = c("arrow", "text"), repel = TRUE, col.var = 'coord')
+# From these first graphs, we notice two dimensions: Dim1 = 43%, Dim2 = 20%. Dimension 1 represents characteristics of a house (living room area, roof area, number of bathrooms, number of bedrooms), which mainly define the covered area. On the other hand, the second dimension...
+
+PCA(dataset_datamining, quali.sup = 10:13, quanti.sup = 2, axes = c(2,3))
+fviz_pca_var(pca, geom = c("arrow", "text"), repel = TRUE, col.var = 'cos2', axes = c(2,3))
+
+fviz_pca_var(pca, geom = c("arrow", "text"), repel = TRUE, col.var = 'cos2', axes = c(1,3))
+# Interpretation
+# We have two...
+
+# Individual Analysis
+fviz_pca_ind(pca, geom = c("point", "text"), repel = TRUE, col.ind = 'cos2')
+fviz_pca_ind(pca, geom = c("point", "text"), repel = TRUE, col.ind = 'contrib')
+fviz_pca_ind(pca, geom = c("point", "text"), repel = TRUE, col.ind = 'coord')
+
+groups <- as.factor(dataset_datamining$Condition)
+fviz_pca_ind(pca,
+             col.ind = groups, # Coloring by groups
+             palette = c('#521070', '#75892e', '#b54e10', '#b5002c', '#15538c'), 
+             addEllipses = TRUE,
+             ellips.type = "confidence",
+             legend.title = "Conditions",
+             repel = TRUE
+             )
+groups1 <- as.factor(dataset_datamining$View_Rating)
+fviz_pca_ind(pca,
+             col.ind = groups1, # Coloring by groups
+             palette = c('#521070', '#75892e', '#b54e10', '#b5002c', '#15538c'), 
+             addEllipses = TRUE,
+             ellips.type = "confidence",
+             legend.title = "View Rating",
+             repel = TRUE
+             )
+
+groups2 <- as.factor(dataset_datamining$Sea_View)
+fviz_pca_ind(pca,
+             col.ind = groups2, # Coloring by groups
+             palette = c('#521070', '#75892e'), 
+             addEllipses = TRUE,
+             ellips.type = "confidence",
+             legend.title = "Sea View",
+             repel = TRUE)
+
+# Inertia Study
+pca$eig > 1 
+# According to Kaiser's rule, we consider dimensions with eigenvalues greater than 1. Therefore, we take the first, second, and third dimensions.
+fviz_screeplot(pca)
+# According to the Elbow method, we limit to the dimension with the most significant visible drop. In our case, the variation between dimensions is not abrupt/significant.
+
+groups <- as.factor(dataset_datamining$Condition)
+fviz_pca_ind(pca,
+             col.ind = groups, # Coloring by groups
+             palette = c('#521070', '#75892e', '#b54e10', '#b5002c', '#15538c'), 
+             addEllipses = TRUE,
+             ellips.type = "confidence",
+             legend.title = "Conditions",
+             repel = TRUE
+             )
+groups1 <- as.factor(dataset_datamining$View_Rating)
+fviz_pca_ind(pca,
+             col.ind = groups1, # Coloring by groups
+             palette = c('#521070', '#75892e', '#b54e10', '#b5002c', '#15538c'), 
+             addEllipses = TRUE,
+             ellips.type = "confidence",
+             legend.title = "View Rating",
+             repel = TRUE
+             )
+
+groups2 <- as.factor(dataset_datamining$Sea_View)
+fviz_pca_ind(pca,
+             col.ind = groups2, # Coloring by groups
+             palette = c('#521070', '#75892e'), 
+             addEllipses = TRUE,
+             ellips.type = "confidence",
+             legend.title = "Sea View",
+             repel = TRUE)
+
+# Hierarchical Clustering (CAH)
+View(dataset_datamining_scaled[, 1:9])
+dataset_datamining_scaled1 <- select(dataset_datamining_scaled, -starts_with("Sea_View"), -ends_with("View"))
+View(dataset_datamining_scaled1)
+d <- as.data.frame(dataset_datamining_scaled1[, 1:9])
+d <- scale(d, center = TRUE, scale = TRUE)
+View(d)
+d1 <- dist(d, method = "euclidean")
+h1 <- hclust(d1, method = "ward.D")
+hcd <- as.dendrogram(h1)
+hcd
+plot(raise.dendrogram(hcd, 100), main = "Raised Tree")
+h1$method
+h1$dist.method 
+h1$height
+h1$order
+h1$merge
+sort(h1$height, decreasing = TRUE)
+plot(sort(h1$height, decreasing = TRUE), type = "h")
+intern <- clValid(d, 2:4, clmethods = c("hierarchical"), validation = "internal")
+summary(intern)
+classes <- cutree(h1, k = 2)
+classes
+table(classes)
+d.class <- cbind.data.frame(d, classes)
+View(d.class)
+colnames(d.class)[10] <- "classes.cah"
+plot(h1, hang = 1) + rect.hclust(h1, k = 2, border = "red")
+
+# K-means Clustering
+kcdeca <- kmeans(d, centers = 2, iter.max = 1000)
+kcdeca$centers
+kcdeca$size
+kcdeca$cluster
+View(d.class)
+d.class <- cbind.data.frame(dataset_datamining_scaled, classes, as.factor(kcdeca$cluster))
+colnames(d.class)[12] <- "class.kmeans"
+
+View(d.class)
+res.cat1 <- catdes(d.class, num.var = 12)
+res.cat1
+
+# clValid function to validate clustering 
+# method choice
+intern1 <- clValid(d, 2:6, clMethods = c("hierarchical", "kmeans"), validation = "internal")
+summary(intern1)
+
+# Logistic Regression
+dataset_datamining_scaled <- mutate(dataset_datamining_scaled, NbrTotalPiece = NbrTotalPiece + 1)
+dataset_datamining_scaled$NbrTotalPiece <- as.integer(dataset_datamining_scaled$NbrTotalPiece)
+df$NbrTotalPiece <- as.integer(df$NbrTotalPiece)
+summary(df)
+reg <- glm(Sea_View ~ ., data = df, family = binomial(link = 'logit'))
+summary(reg)
+data <- as.data.frame(reg$fitted.values)
+data <- cbind.data.frame(df, data)
+View(data)
+y <- ifelse(reg$fitted.values > 0.5, 1, 0)
+summary(y)
+df$Sea_View <- as.numeric(df$Sea_View)
+y <- as.factor(y)
+table(y)
+cm <- table(df$Sea_View, y)
+confusionMatrix(cm)
+
+# Decision Tree
+df$Sea_View <- as.factor(df$Sea_View)
+train <- sample(1:nrow(df), size = 0.75 * nrow(df))
+df.train <- df[train,]
+df.test <- df[-train,]
+tree <- rpart(Sea_View ~ ., data = df.train)
+rpart.plot(tree)
+pred <- predict(tree, df.test, type = 'class')
+cm1 <- table(df.test$Sea_View, pred)
+confusionMatrix(cm1)
+
+# Decision Tree with CTree
+model <- ctree(Sea_View ~ ., data = df.train)
+summary(model)
+plot(model)
+pred1 <- predict(model, df.test, type = "response")
+cm2 <- table(df.test$Sea_View, pred1)
+confusionMatrix(cm2)
